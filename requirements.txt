@@ -1,1 +1,2 @@
-pyxel==1.9.18 
+pyxel>=2.0.0
+pyxel_universal_font>=0.1.0
