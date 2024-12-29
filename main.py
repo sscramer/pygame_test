@@ -302,6 +302,12 @@ class App:
             if math.sqrt(dx * dx + dy * dy) < self.player_size:
                 if exp_token in self.exp_tokens:
                     self.exp_tokens.remove(exp_token)
+                    self.exp_count += 1  # 経験値を1増加
+                    # 経験値が20の倍数ならスキル選択画面を表示
+                    if self.exp_count % 20 == 0:
+                        self.show_skill_select = True
+                        self.paused = True  # ゲームを一時停止
+                        self.generate_skill_options()
                 # 発射間隔を短くする（最小値まで）
                 if self.cooldown_time > self.min_cooldown:
                     self.cooldown_time -= 1
