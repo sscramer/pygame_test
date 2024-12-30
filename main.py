@@ -19,14 +19,25 @@ class App:
     def __init__(self):
         # ゲームウィンドウを初期化（幅256px、高さ256px）
         pyxel.init(256, 256, title="My Pyxel Game", capture_scale=1, capture_sec=0)
-        
         # プレイヤーの初期状態を設定
         self.player_x = 0  # マップ上の位置
         self.player_y = 0
         self.player_size = 8
         self.player_speed = 2
-        self.player_hp = 10  # プレイヤーの体力
         self.max_hp = 10     # 最大体力
+        self.player_hp = self.max_hp  # プレイヤーの体力
+        self.invincible = False  # 無敵状態かどうか
+        self.invincible_timer = 0  # 無敵時間のタイマー
+        self.blink_timer = 0  # 点滅用タイマー
+        self.bullets = []  # 弾のリスト
+        self.enemies = []  # 敵のリスト
+        self.exp_tokens = []  # 経験値トークンのリスト
+        self.skills = []  # スキルのリスト
+        self.satellites = []  # 衛星のリスト
+        self.game_over = False  # ゲームオーバーフラグ
+        self.paused = False  # 一時停止フラグ
+        self.show_skill_select = False  # スキル選択画面表示フラグ
+        self.blink_timer = 0  # 点滅用タイマー
         self.invincible = False  # 無敵状態かどうか
         self.invincible_timer = 0  # 無敵時間のタイマー
         self.blink_timer = 0  # 点滅用タイマー
@@ -535,9 +546,6 @@ class App:
                         self.show_skill_select = True
                         self.paused = True  # ゲームを一時停止
                         self.generate_skill_options()
-                # 発射間隔を短くする（最小値まで）
-                if self.cooldown_time > self.min_cooldown:
-                    self.cooldown_time -= 1
     
     class Satellite:
         def __init__(self, player):
@@ -576,6 +584,23 @@ class App:
             screen_y = self.get_y() - self.player.player_y + 128
             pyxel.circ(screen_x, screen_y, self.size, self.color)
 
+    def reset_game(self):
+        # ゲームの状態をリセット
+        self.player_x = 0
+        self.player_y = 0
+        self.player_hp = self.max_hp
+        self.score = 0
+        self.exp_count = 0
+        self.bullets = []
+        self.enemies = []
+        self.exp_tokens = []
+        self.skills = []
+        self.satellites = []
+        self.game_over = False
+        self.paused = False
+        self.show_skill_select = False
+        self.cooldown_time = 20  # 発射間隔を初期値に戻す
+
     def generate_skill_options(self):
         # スキルオプションを生成
         self.skill_options = [
@@ -585,14 +610,14 @@ class App:
                 'effect': lambda: self.satellites.append(self.Satellite(self))
             },
             {
-                'name': '移動速度アップ',
-                'description': 'プレイヤーの移動速度が上がる',
-                'effect': lambda: setattr(self, 'player_speed', self.player_speed + 1)
+                'name': '攻撃速度アップ',
+                'description': '弾の発射間隔が短くなる',
+                'effect': lambda: setattr(self, 'cooldown_time', max(self.min_cooldown, self.cooldown_time - 2))
             },
             {
-                'name': '最大HPアップ',
-                'description': 'プレイヤーの最大HPが増える',
-                'effect': lambda: setattr(self, 'max_hp', self.max_hp + 2)
+                'name': 'HP全回復',
+                'description': 'プレイヤーのHPを最大値まで回復',
+                'effect': lambda: setattr(self, 'player_hp', self.max_hp)
             }
         ]
 
