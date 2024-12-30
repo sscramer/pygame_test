@@ -64,6 +64,7 @@ class App:
         
         # ゲームの状態を管理する変数
         self.game_over = False
+        self.paused = False  # 一時停止状態
         self.score = 0  # スコアを初期化
         self.selected_skill = None  # 選択されたスキル
         self.last_key_pressed = None  # 最後に押されたキー
@@ -102,7 +103,249 @@ class App:
                 self.reset_game()
             return
             
+        if self.show_skill_select:
+            self.update_skill_select()
+        else:
+            self.update_game()
+            
+    def update_game(self):
+        # ゲームのメイン更新処理
+        # プレイヤーの移動（WASD）
+        if pyxel.btn(pyxel.KEY_W):
+            self.player_y -= self.player_speed
+        if pyxel.btn(pyxel.KEY_S):
+            self.player_y += self.player_speed
+        if pyxel.btn(pyxel.KEY_A):
+            self.player_x -= self.player_speed
+        if pyxel.btn(pyxel.KEY_D):
+            self.player_x += self.player_speed
+        
+        # 敵のスポーン処理
+        self.spawn_timer += 1
+        if self.spawn_timer >= self.spawn_interval:
+            self.spawn_enemy()
+            self.spawn_timer = 0
+        
+        # 敵の更新
+        for enemy in self.enemies[:]:
+            # 敵のタイプに応じた行動
+            if enemy['type'] == 'red':
+                # 赤い敵：プレイヤーに突進
+                dx = self.player_x - enemy['x']
+                dy = self.player_y - enemy['y']
+                angle = math.atan2(dy, dx)
+                enemy['x'] += math.cos(angle) * self.enemy_speed * 1.5  # 赤い敵は速い
+                enemy['y'] += math.sin(angle) * self.enemy_speed * 1.5
+            elif enemy['type'] == 'blue':
+                # 青い敵：ゆっくり移動しつつ弾を発射
+                dx = self.player_x - enemy['x']
+                dy = self.player_y - enemy['y']
+                angle = math.atan2(dy, dx)
+                enemy['x'] += math.cos(angle) * self.enemy_speed * 0.7  # 青い敵は遅い
+                enemy['y'] += math.sin(angle) * self.enemy_speed * 0.7
+                
+                # 弾を発射
+                enemy['shoot_timer'] += 1
+                if enemy['shoot_timer'] >= 60:  # 1秒ごとに発射
+                    self.bullets.append({
+                        'x': enemy['x'],
+                        'y': enemy['y'],
+                        'vx': math.cos(angle) * self.bullet_speed,
+                        'vy': math.sin(angle) * self.bullet_speed,
+                        'from_enemy': True  # 敵の弾であることを示す
+                    })
+                    enemy['shoot_timer'] = 0
+            else:
+                # 緑の敵：プレイヤーに超低速で近づく
+                dx = self.player_x - enemy['x']
+                dy = self.player_y - enemy['y']
+                angle = math.atan2(dy, dx)
+                enemy['x'] += math.cos(angle) * self.enemy_speed * 0.2  # 通常速度の20%
+                enemy['y'] += math.sin(angle) * self.enemy_speed * 0.2
+                
+                # プレイヤーとの距離を計算
+                dx = self.player_x - enemy['x']
+                dy = self.player_y - enemy['y']
+            
+            # プレイヤーと敵の衝突判定
+            if (math.sqrt(dx * dx + dy * dy) < self.player_size and
+                not self.invincible):
+                self.player_hp -= 3  # 体当たりで3ダメージ
+                if enemy in self.enemies:
+                    self.enemies.remove(enemy)  # 敵を消す
+                if self.player_hp <= 0:
+                    self.game_over = True
+                    break
+                # 無敵状態を有効にする
+                self.invincible = True
+                self.invincible_timer = 180  # 3秒間無敵（60fps * 3）
+            
+            # プレイヤーと敵の弾の衝突判定
+            for bullet in self.bullets[:]:
+                if bullet.get('from_enemy', False):
+                    dx = bullet['x'] - self.player_x
+                    dy = bullet['y'] - self.player_y
+                    if (math.sqrt(dx * dx + dy * dy) < self.player_size and
+                        not self.invincible):
+                        self.player_hp -= 1  # 敵の弾で1ダメージ
+                        if self.player_hp <= 0:
+                            self.player_hp = 0
+                            self.game_over = True
+                        # 弾を消滅させる
+                        self.bullets.remove(bullet)
+                        break
+        
+        # 無敵状態の更新
+        if self.invincible:
+            self.invincible_timer -= 1
+            self.blink_timer += 1
+            if self.invincible_timer <= 0:
+                self.invincible = False
+                self.blink_timer = 0
+                
+        # 衛星の更新
+        for satellite in self.satellites:
+            satellite.update()
 
+        # 弾の発射間隔を更新
+        if self.bullet_cooldown > 0:
+            self.bullet_cooldown -= 1
+
+        # デバッグ用：Tキーで経験値トークンを20個獲得
+        if pyxel.btnp(pyxel.KEY_T):
+            self.exp_count += 20
+            if self.exp_count >= 20:
+                self.show_skill_select = True
+                self.paused = True  # ゲームを一時停止
+                self.generate_skill_options()
+                
+        # スキル選択が終了したら一時停止を解除
+        if not self.show_skill_select:
+            self.paused = False
+
+        # スキル選択処理
+        if self.show_skill_select:
+            if pyxel.btnp(pyxel.KEY_1, hold=0, repeat=0):
+                self.last_key_pressed = '1'
+                self.selected_skill = self.skill_options[0]['name']
+                self.skill_options[0]['effect']()
+                self.show_skill_select = False
+                return
+            if pyxel.btnp(pyxel.KEY_2, hold=0, repeat=0):
+                self.last_key_pressed = '2'
+                self.selected_skill = self.skill_options[1]['name']
+                self.skill_options[1]['effect']()
+                self.show_skill_select = False
+                return
+            if pyxel.btnp(pyxel.KEY_3, hold=0, repeat=0):
+                self.last_key_pressed = '3'
+                self.selected_skill = self.skill_options[2]['name']
+                self.skill_options[2]['effect']()
+                self.show_skill_select = False
+                return
+        # マウスクリックで弾を発射
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT) and self.bullet_cooldown <= 0:
+            # 弾の速度ベクトルを計算
+            dx = pyxel.mouse_x - 128
+            dy = pyxel.mouse_y - 128
+            angle = math.atan2(dy, dx)
+            bullet_vx = math.cos(angle) * self.bullet_speed
+            bullet_vy = math.sin(angle) * self.bullet_speed
+            
+            # 弾を追加
+            self.bullets.append({
+                'x': self.player_x,
+                'y': self.player_y,
+                'vx': bullet_vx,
+                'vy': bullet_vy
+            })
+            
+            # 発射間隔をリセット
+            self.bullet_cooldown = self.cooldown_time
+        
+        # 弾の更新
+        for bullet in self.bullets[:]:
+            # 弾を移動
+            bullet['x'] += bullet['vx']
+            bullet['y'] += bullet['vy']
+            
+            # 画面外に出た弾を削除
+            screen_x = bullet['x'] - self.player_x + 128
+            screen_y = bullet['y'] - self.player_y + 128
+            if (screen_x < 0 or screen_x > 256 or
+                screen_y < 0 or screen_y > 256):
+                if bullet in self.bullets:
+                    self.bullets.remove(bullet)
+                continue
+            
+            # 弾と敵の衝突判定（敵自身の弾は無視）
+            for enemy in self.enemies[:]:
+                dx = bullet['x'] - enemy['x']
+                dy = bullet['y'] - enemy['y']
+                if (math.sqrt(dx * dx + dy * dy) < self.enemy_size and
+                    not bullet.get('from_enemy', False)):
+                    if enemy in self.enemies:
+                        self.enemies.remove(enemy)
+                        self.score += 1  # スコアを増加
+                        # 経験値トークンを生成
+                        self.exp_tokens.append({
+                            'x': enemy['x'],
+                            'y': enemy['y']
+                        })
+                    if bullet in self.bullets:
+                        self.bullets.remove(bullet)
+                    break
+        
+        # 経験値トークンの更新
+        for exp_token in self.exp_tokens[:]:
+            # 画面外に出たトークンを削除
+            screen_x = exp_token['x'] - self.player_x + 128
+            screen_y = exp_token['y'] - self.player_y + 128
+            if (screen_x < 0 or screen_x > 256 or
+                screen_y < 0 or screen_y > 256):
+                if exp_token in self.exp_tokens:
+                    self.exp_tokens.remove(exp_token)
+                continue
+            
+            # プレイヤーと経験値トークンの衝突判定
+            dx = exp_token['x'] - self.player_x
+            dy = exp_token['y'] - self.player_y
+            if math.sqrt(dx * dx + dy * dy) < self.player_size:
+                if exp_token in self.exp_tokens:
+                    self.exp_tokens.remove(exp_token)
+                    self.exp_count += 1  # 経験値を1増加
+                    # 経験値が20の倍数ならスキル選択画面を表示
+                    if self.exp_count % 20 == 0:
+                        self.show_skill_select = True
+                        self.paused = True  # ゲームを一時停止
+                        self.generate_skill_options()
+                # 発射間隔を短くする（最小値まで）
+                if self.cooldown_time > self.min_cooldown:
+                    self.cooldown_time -= 1
+
+    def update_skill_select(self):
+        # スキル選択の更新処理
+        if pyxel.btnp(pyxel.KEY_1, hold=0, repeat=0):
+            self.last_key_pressed = '1'
+            self.selected_skill = self.skill_options[0]['name']
+            self.skill_options[0]['effect']()
+            self.show_skill_select = False
+            return
+        if pyxel.btnp(pyxel.KEY_2, hold=0, repeat=0):
+            self.last_key_pressed = '2'
+            self.selected_skill = self.skill_options[1]['name']
+            self.skill_options[1]['effect']()
+            self.show_skill_select = False
+            return
+        if pyxel.btnp(pyxel.KEY_3, hold=0, repeat=0):
+            self.last_key_pressed = '3'
+            self.selected_skill = self.skill_options[2]['name']
+            self.skill_options[2]['effect']()
+            self.show_skill_select = False
+            return
+            
+    def update_game(self):
+        # ゲームのメイン更新処理
         # プレイヤーの移動（WASD）
         if pyxel.btn(pyxel.KEY_W):
             self.player_y -= self.player_speed
@@ -211,27 +454,11 @@ class App:
                 self.show_skill_select = True
                 self.paused = True  # ゲームを一時停止
                 self.generate_skill_options()
+                
+        # スキル選択が終了したら一時停止を解除
+        if not self.show_skill_select:
+            self.paused = False
 
-        # スキル選択処理
-        if self.show_skill_select:
-            if pyxel.btnp(pyxel.KEY_1, hold=0, repeat=0):
-                self.last_key_pressed = '1'
-                self.selected_skill = self.skill_options[0]['name']
-                self.skill_options[0]['effect']()
-                self.show_skill_select = False
-                return
-            if pyxel.btnp(pyxel.KEY_2, hold=0, repeat=0):
-                self.last_key_pressed = '2'
-                self.selected_skill = self.skill_options[1]['name']
-                self.skill_options[1]['effect']()
-                self.show_skill_select = False
-                return
-            if pyxel.btnp(pyxel.KEY_3, hold=0, repeat=0):
-                self.last_key_pressed = '3'
-                self.selected_skill = self.skill_options[2]['name']
-                self.skill_options[2]['effect']()
-                self.show_skill_select = False
-                return
         # マウスクリックで弾を発射
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT) and self.bullet_cooldown <= 0:
             # 弾の速度ベクトルを計算
