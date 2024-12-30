@@ -139,10 +139,8 @@ class App:
         # デバッグ用：Tキーで経験値トークンを20個獲得
         # ------------------------------------------------------------
         if pyxel.btnp(pyxel.KEY_T, hold=0, repeat=0):
-            print("T key pressed")  # デバッグ用出力
             self.exp_count += 20
             self.score += 20
-            print(f"Debug: Score increased to {self.score}, Exp increased to {self.exp_count}")
             if self.exp_count >= 20:
                 self.show_skill_select = True
                 self.paused = True
@@ -398,7 +396,11 @@ class App:
                     # 衛星に当たった敵を倒す
                     self.player.enemies.remove(enemy)
                     self.player.score += 1
-                    # 経験値トークンも落としたければここで追加してもよい
+                    # 経験値トークンを生成
+                    self.player.exp_tokens.append({
+                        'x': enemy['x'],
+                        'y': enemy['y']
+                    })
 
         def get_x(self):
             """
@@ -493,8 +495,20 @@ class App:
         # ゲームオーバー画面
         # ------------------------------------------------------------
         if self.game_over:
-            pyxel.text(100, 116, "GAME OVER", 7)
-            pyxel.text(76, 132, "Press 'R' to restart", 7)
+            # GAME OVERを中央に表示
+            game_over_text = "GAME OVER"
+            text_width = len(game_over_text) * 4  # 1文字あたり約4ピクセル
+            pyxel.text(128 - text_width // 2, 116, game_over_text, 7)
+            
+            # Restartメッセージを中央に表示
+            restart_text = "Press 'R' to restart"
+            text_width = len(restart_text) * 4
+            pyxel.text(128 - text_width // 2, 132, restart_text, 7)
+            
+            # スコアを中央に表示
+            score_text = f"Score: {self.score}"
+            text_width = len(score_text) * 4
+            pyxel.text(128 - text_width // 2, 148, score_text, 7)
             return
 
         # ------------------------------------------------------------
