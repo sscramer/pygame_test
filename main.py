@@ -90,7 +90,7 @@ class App:
         # 弾のクールダウン設定
         # -----------------------
         self.bullet_cooldown = 0      # 弾の発射クールダウン(フレーム)
-        self.cooldown_time = 20       # 初期クールダウン時間
+        self.cooldown_time = 30       # 初期クールダウン時間
         self.min_cooldown = 5         # 最小クールダウン時間
         
         # -----------------------
@@ -143,25 +143,31 @@ class App:
         """
         スキル選択画面の更新処理
         """
-        # 1～3キーの入力でスキル決定
-        if pyxel.btnp(pyxel.KEY_1, hold=0, repeat=0):
-            self.last_key_pressed = '1'
-            self.selected_skill = self.skill_options[0]['name']
-            self.skill_options[0]['effect']()
-            self.finish_skill_select()
-            return
-        if pyxel.btnp(pyxel.KEY_2, hold=0, repeat=0):
-            self.last_key_pressed = '2'
-            self.selected_skill = self.skill_options[1]['name']
-            self.skill_options[1]['effect']()
-            self.finish_skill_select()
-            return
-        if pyxel.btnp(pyxel.KEY_3, hold=0, repeat=0):
-            self.last_key_pressed = '3'
-            self.selected_skill = self.skill_options[2]['name']
-            self.skill_options[2]['effect']()
-            self.finish_skill_select()
-            return
+        # マウスクリックでスキル決定
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            mx = pyxel.mouse_x
+            my = pyxel.mouse_y
+            
+            # スキル1の領域 (60, 90) - (200, 125)
+            if 60 <= mx <= 200 and 90 <= my <= 125:
+                self.selected_skill = self.skill_options[0]['name']
+                self.skill_options[0]['effect']()
+                self.finish_skill_select()
+                return
+                
+            # スキル2の領域 (60, 125) - (200, 160)
+            if 60 <= mx <= 200 and 125 <= my <= 160:
+                self.selected_skill = self.skill_options[1]['name']
+                self.skill_options[1]['effect']()
+                self.finish_skill_select()
+                return
+                
+            # スキル3の領域 (60, 160) - (200, 195)
+            if 60 <= mx <= 200 and 160 <= my <= 195:
+                self.selected_skill = self.skill_options[2]['name']
+                self.skill_options[2]['effect']()
+                self.finish_skill_select()
+                return
 
     def finish_skill_select(self):
         """
@@ -219,16 +225,15 @@ class App:
             self.spawn_interval = max(10, self.base_spawn_interval - self.level * 2)
 
         # ------------------------------------------------------------
-        # プレイヤー移動（WASD）
+        # プレイヤー移動（タップ方向）
         # ------------------------------------------------------------
-        if pyxel.btn(pyxel.KEY_W):
-            self.player_y -= self.player_speed
-        if pyxel.btn(pyxel.KEY_S):
-            self.player_y += self.player_speed
-        if pyxel.btn(pyxel.KEY_A):
-            self.player_x -= self.player_speed
-        if pyxel.btn(pyxel.KEY_D):
-            self.player_x += self.player_speed
+        if pyxel.btn(pyxel.MOUSE_BUTTON_LEFT):
+            dx = pyxel.mouse_x - 128
+            dy = pyxel.mouse_y - 128
+            dist = math.hypot(dx, dy)
+            if dist > 0:
+                self.player_x += dx / dist * self.player_speed
+                self.player_y += dy / dist * self.player_speed
 
         # ------------------------------------------------------------
         # 敵のスポーン処理（通常用：赤,青,緑のみ）
@@ -379,7 +384,7 @@ class App:
                 # 敵を倒した場合、60秒間のチャージを開始
                 if enemy_hit:
                     self.electric_field_active = False
-                    self.electric_field_cooldown = 60 * 60  # 60秒（60FPS）
+                    self.electric_field_cooldown = 20 * 60  # 20秒（60FPS）
 
         # ------------------------------------------------------------
         # 衛星（スキル獲得オブジェクト）の更新
@@ -394,26 +399,33 @@ class App:
             self.bullet_cooldown -= 1
 
         # ------------------------------------------------------------
-        # マウスクリックでプレイヤー弾を発射
+        # 自動誘導弾発射
         # ------------------------------------------------------------
-        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT) and self.bullet_cooldown <= 0:
-            dx = pyxel.mouse_x - 128
-            dy = pyxel.mouse_y - 128
-            angle = math.atan2(dy, dx)
+        if self.bullet_cooldown <= 0 and len(self.enemies) > 0:
+            # 最も近い敵を探す
+            nearest_enemy = None
+            min_distance = float('inf')
+            for enemy in self.enemies:
+                distance = math.hypot(self.player_x - enemy['x'], self.player_y - enemy['y'])
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_enemy = enemy
+            
+            if nearest_enemy:
+                dx = nearest_enemy['x'] - self.player_x
+                dy = nearest_enemy['y'] - self.player_y
+                angle = math.atan2(dy, dx)
 
-            bullet_vx = math.cos(angle) * self.player_bullet_speed
-            bullet_vy = math.sin(angle) * self.player_bullet_speed
-            
-            self.bullets.append({
-                'x': self.player_x,
-                'y': self.player_y,
-                'vx': bullet_vx,
-                'vy': bullet_vy,
-                'from_enemy': False
-            })
-            
-            # クールダウンを初期化
-            self.bullet_cooldown = self.cooldown_time
+                self.bullets.append({
+                    'x': self.player_x,
+                    'y': self.player_y,
+                    'vx': math.cos(angle) * self.player_bullet_speed,
+                    'vy': math.sin(angle) * self.player_bullet_speed,
+                    'from_enemy': False
+                })
+                
+                # クールダウンを初期化
+                self.bullet_cooldown = self.cooldown_time
 
         # ------------------------------------------------------------
         # 弾の更新 & 敵との衝突判定
@@ -662,26 +674,14 @@ class App:
         self.event_timer = 0
 
         # スキル関連の状態をリセット
-        if hasattr(self, 'has_homing_bullet'):
-            del self.has_homing_bullet
         if hasattr(self, 'has_electric_field'):
             del self.has_electric_field
-        if hasattr(self, 'homing_bullets'):
-            del self.homing_bullets
         if hasattr(self, 'electric_field'):
             del self.electric_field
 
         # スキル取得管理用の変数も再初期化
         self.skill_level = 1
         self.next_skill_threshold = self.get_skill_threshold(self.skill_level)
-
-    def add_homing_bullet(self):
-        """
-        誘導弾を追加する
-        """
-        self.homing_bullets = True
-        self.homing_bullet_speed = 3
-        self.has_homing_bullet = True
 
     def add_electric_field(self):
         """
@@ -717,10 +717,10 @@ class App:
                 'effect': lambda: setattr(self, 'player_hp', self.max_hp)
             },
             {
-                'name': '誘導弾',
-                'description': '発射した弾が敵を自動追尾する',
-                'effect': lambda: self.add_homing_bullet(),
-                'condition': lambda: not hasattr(self, 'has_homing_bullet') or not self.has_homing_bullet
+                'name': 'スピードアップ',
+                'description': 'プレイヤーの移動速度が1.5倍になる',
+                'effect': lambda: setattr(self, 'player_speed', self.player_speed * 1.5),
+                'condition': lambda: self.player_speed < 6  # 最大速度制限
             },
             {
                 'name': '電撃フィールド',
@@ -814,24 +814,6 @@ class App:
             ty = exp_token['y'] - self.player_y + 128
             pyxel.circ(tx, ty, self.exp_token_size, 10)
 
-        # クロスヘア
-        size = self.crosshair_size
-        mx = pyxel.mouse_x
-        my = pyxel.mouse_y
-        pyxel.line(mx - size, my, mx + size, my, self.crosshair_color)
-        pyxel.line(mx, my - size, mx, my + size, self.crosshair_color)
-
-        # 弾再発射ゲージ
-        if self.bullet_cooldown > 0:
-            gauge_width = 20
-            gauge_height = 3
-            gauge_x = mx - gauge_width // 2
-            gauge_y = my + size + 5
-            pyxel.rect(gauge_x, gauge_y, gauge_width, gauge_height, 1)
-            progress = 1 - (self.bullet_cooldown / self.cooldown_time)
-            filled_width = int(gauge_width * progress)
-            pyxel.rect(gauge_x, gauge_y, filled_width, gauge_height, 8)
-
         # 衛星を描画
         for satellite in self.satellites:
             satellite.draw()
@@ -847,7 +829,7 @@ class App:
                     y = 128 + math.sin(angle) * length
                     pyxel.line(128, 128, x, y, 12)
             else:
-                charge_percent = 1 - (self.electric_field_cooldown / (60 * 60))
+                charge_percent = 1 - (self.electric_field_cooldown / (20 * 60))
                 pyxel.circb(128, 128, self.electric_field_radius, 13)
                 pyxel.text(120, 128, f"{int(charge_percent * 100)}%", 13)
 
@@ -859,11 +841,18 @@ class App:
         if self.show_skill_select:
             pyxel.rect(50, 50, 156, 156, 1)
             draw_text_with_border(80, 50, "スキルを選択", 7, 5, self.font)
-            draw_text_with_border(60, 65, "1,2,3 キーで選択", 7, 5, self.font)
+            draw_text_with_border(60, 65, "タップで選択", 7, 5, self.font)
             for i, option in enumerate(self.skill_options):
                 y = 90 + i * 35
                 draw_text_with_border(60, y, f"{i+1}. {option['name']}", 7, 5, self.font)
                 draw_text_with_border(60, y + 15, option['description'], 5, 1, self.font)
+
+        # クロスヘア（スキル選択ウインドウの上に表示）
+        size = self.crosshair_size
+        mx = pyxel.mouse_x
+        my = pyxel.mouse_y
+        pyxel.line(mx - size, my, mx + size, my, self.crosshair_color)
+        pyxel.line(mx, my - size, mx, my + size, self.crosshair_color)
 
 
 # アプリケーションを起動
