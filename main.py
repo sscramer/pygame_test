@@ -23,90 +23,88 @@ class App:
         """
         ゲームの初期化処理を行うコンストラクタ
         """
-        # ゲームウィンドウを初期化（幅256px、高さ256px）
         pyxel.init(256, 256, title="My Pyxel Game", capture_scale=1, capture_sec=0)
         
         # -----------------------
         # プレイヤー関連の設定
         # -----------------------
-        self.player_x = 0  # プレイヤーのX座標
-        self.player_y = 0  # プレイヤーのY座標
-        self.player_size = 8  # プレイヤーのサイズ（半径）
-        self.player_speed = 2  # プレイヤーの移動速度
-        self.max_hp = 10  # プレイヤーの最大HP
-        self.player_hp = self.max_hp  # プレイヤーの現在HP
-        self.invincible = False  # 無敵状態かどうか
-        self.invincible_timer = 0  # 無敵状態の残り時間
-        self.blink_timer = 0  # 点滅用タイマー
+        self.player_x = 0
+        self.player_y = 0
+        self.player_size = 8
+        self.player_speed = 2
+        self.max_hp = 10
+        self.player_hp = self.max_hp
+        self.invincible = False
+        self.invincible_timer = 0
+        self.blink_timer = 0
         
         # -----------------------
         # 弾関連の設定
         # -----------------------
-        self.bullets = []  # 弾のリスト
-        self.player_bullet_speed = 4  # プレイヤー弾の速度
-        self.enemy_bullet_speed = 2   # 敵弾の速度
-        self.bullet_size = 3  # 弾のサイズ
+        self.bullets = []
+        self.player_bullet_speed = 4
+        self.enemy_bullet_speed = 2
+        self.bullet_size = 3
         
         # -----------------------
         # 経験値トークン関連の設定
         # -----------------------
-        self.exp_tokens = []         # 経験値トークンのリスト
-        self.exp_token_size = 4      # トークンのサイズ
-        self.exp_token_speed = 1.5   # トークンの移動速度
-        self.exp_count = 0           # 獲得した累計経験値
+        self.exp_tokens = []
+        self.exp_token_size = 4
+        self.exp_token_speed = 1.5
+        self.exp_count = 0
         
         # 「次のスキル取得に必要な累計経験値」を管理する仕組み
         self.skill_level = 1
-        # スキル取得に必要な経験値: 5n^2 + 15n
         self.next_skill_threshold = self.get_skill_threshold(self.skill_level)
         
         # -----------------------
         # スキル関連の設定
         # -----------------------
-        self.skills = []               # 獲得したスキルのリスト
-        self.satellites = []           # 衛星オブジェクトのリスト
-        self.show_skill_select = False # スキル選択画面を表示するか
-        self.skill_options = []        # 選択可能なスキルのリスト
-        self.selected_skill = None     # 選択されたスキル
+        self.skills = []
+        self.satellites = []
+        self.show_skill_select = False
+        self.skill_options = []
+        self.selected_skill = None
         
         # -----------------------
         # 敵関連の設定
         # -----------------------
-        self.enemies = []             # 敵のリスト
-        self.enemy_size = 8           # 敵のサイズ
-        self.enemy_speed = 1.5        # 敵の移動速度
+        self.enemies = []
+        self.enemy_size = 8
+        self.enemy_speed = 1.5
         
-        # 「通常の敵スポーン」まわり
-        self.spawn_interval = 30      # 敵のスポーン間隔
-        self.spawn_timer = 0          # 敵スポーン用タイマー
+        # 通常の敵スポーン
+        self.spawn_interval = 30
+        self.spawn_timer = 0
         
         # -----------------------
         # クロスヘア（照準）設定
         # -----------------------
-        self.crosshair_size = 5       # クロスヘアのサイズ
-        self.crosshair_color = 8      # クロスヘアの色（赤色）
+        self.crosshair_size = 5
+        self.crosshair_color = 8
         
         # -----------------------
         # 弾のクールダウン設定
         # -----------------------
-        self.bullet_cooldown = 0      # 弾の発射クールダウン(フレーム)
-        self.cooldown_time = 30       # 初期クールダウン時間
-        self.min_cooldown = 5         # 最小クールダウン時間
+        self.bullet_cooldown = 0
+        self.cooldown_time = 30
+        self.min_cooldown = 5
         
         # -----------------------
         # ゲーム状態の管理
         # -----------------------
-        self.game_over = False        # ゲームオーバー状態か
-        self.paused = False           # ゲームが一時停止中か
-        self.score = 0                # 現在のスコア
-        self.level = 1                # 現在のレベル
-        self.base_spawn_interval = 30 # 敵スポーンの基本間隔
-        self.last_key_pressed = None  # 最後に押されたキー
+        self.game_over = False
+        self.paused = False
+        self.score = 0
+        self.level = 1
+        self.base_spawn_interval = 30
+        self.last_key_pressed = None
         
         # -----------------------
         # イベント管理用タイマー
         # -----------------------
-        self.event_timer = 0          # 特殊イベント用のタイマー
+        self.event_timer = 0
         
         # 日本語フォントを初期化
         self.font = pyxel.Font("assets/k8x12.bdf")
@@ -127,10 +125,6 @@ class App:
         """
         # ゲームオーバー時の処理
         if self.game_over:
-            # Rキーでリスタート
-            if pyxel.btnp(pyxel.KEY_R):
-                self.game_over = False
-                self.reset_game()
             return
         
         # スキル選択画面が表示されている場合
@@ -178,54 +172,41 @@ class App:
         self.show_skill_select = False
         self.paused = False
         
-        # 次のスキル閾値を設定（n回目のスキル取得 → n+1回目の閾値へ）
+        # 次のスキル閾値を設定
         self.skill_level += 1
         self.next_skill_threshold = self.get_skill_threshold(self.skill_level)
 
     def update_game(self):
         """
         メインのゲームロジックをすべてここで処理
-        1フレームごとに呼び出され、以下の処理を行う：
-        - プレイヤーの移動と攻撃
-        - 敵のスポーンと移動
-        - 特殊イベントの処理（一定時間ごとの包囲や大群）
-        - 弾と敵の衝突判定
-        - 経験値トークンの処理
-        - ゲーム状態の更新
         """
         # ------------------------------------------------------------
         # デバッグ用：Tキーで経験値トークンを20個獲得
         # ------------------------------------------------------------
         if pyxel.btnp(pyxel.KEY_T, hold=0, repeat=0):
             self.exp_count += 20
-            self.score += 20  # スコアも上げておく
+            self.score += 20
 
         # ------------------------------------------------------------
         # デバッグ用：Yキー(緑色一斉包囲), Uキー(水色の帯状大群)
         # ------------------------------------------------------------
         if pyxel.btnp(pyxel.KEY_Y):
-            # 大量の緑色で包囲する
             self.spawn_green_ring(num_enemies=20, distance=150)
-
         if pyxel.btnp(pyxel.KEY_U):
-            # 水色の帯状大群を出現
-            self.spawn_cyan_wave(num_enemies=30)  # 数はお好みで
+            self.spawn_cyan_wave(num_enemies=30)
 
         # ------------------------------------------------------------
-        # レベルアップ判定：スコアに応じてレベルを更新し、敵の発生間隔を短縮
-        #   (こちらはスコアを元にしたレベル概念)
-        #   まとめて大量にスコアを得た場合に一気に複数レベル上昇するように while
+        # スコアを元にしたレベル管理
         # ------------------------------------------------------------
         new_level = 1
         while self.score >= 5 * (new_level**2) + 15 * new_level:  # 5n^2+15n
             new_level += 1
         if new_level > self.level:
             self.level = new_level
-            # レベルが上がるとスポーン間隔を短くする
             self.spawn_interval = max(10, self.base_spawn_interval - self.level * 2)
 
         # ------------------------------------------------------------
-        # プレイヤー移動（タップ方向）
+        # プレイヤー移動（マウス左クリックで中央からマウス位置方向へ移動）
         # ------------------------------------------------------------
         if pyxel.btn(pyxel.MOUSE_BUTTON_LEFT):
             dx = pyxel.mouse_x - 128
@@ -236,7 +217,7 @@ class App:
                 self.player_y += dy / dist * self.player_speed
 
         # ------------------------------------------------------------
-        # 敵のスポーン処理（通常用：赤,青,緑のみ）
+        # 通常敵のスポーン
         # ------------------------------------------------------------
         self.spawn_timer += 1
         if self.spawn_timer >= self.spawn_interval:
@@ -244,42 +225,33 @@ class App:
             self.spawn_timer = 0
 
         # ------------------------------------------------------------
-        # 一定時間ごとのイベント管理
-        #   30秒ごとに緑色の円形包囲
-        #   45秒ごとに水色の帯状大群
+        # イベント管理
         # ------------------------------------------------------------
         self.event_timer += 1
-
-        # 30秒(1800フレーム)ごとに大量の緑色
+        # 30秒ごとに緑色
         if self.event_timer % (60 * 30) == 0:
             self.spawn_green_ring(num_enemies=30, distance=150)
-
-        # 45秒(2700フレーム)ごとに水色の帯状大群
+        # 45秒ごとに水色
         if self.event_timer % (60 * 45) == 0:
             self.spawn_cyan_wave(num_enemies=50)
 
         # ------------------------------------------------------------
-        # 敵の移動や弾の発射、およびプレイヤーとの衝突判定
+        # 敵の移動や弾発射、プレイヤー衝突判定
         # ------------------------------------------------------------
         for enemy in self.enemies[:]:
             if enemy['type'] in ['red', 'blue', 'green']:
-                # 既存の処理：プレイヤーを追跡
                 dx = self.player_x - enemy['x']
                 dy = self.player_y - enemy['y']
                 angle = math.atan2(dy, dx)
                 
                 if enemy['type'] == 'red':
-                    # 赤い敵：プレイヤーに高速突進
                     enemy['x'] += math.cos(angle) * self.enemy_speed * 1.5
                     enemy['y'] += math.sin(angle) * self.enemy_speed * 1.5
                 
                 elif enemy['type'] == 'blue':
-                    # 青い敵：ゆっくり移動 + 定期的に弾発射
                     enemy['x'] += math.cos(angle) * self.enemy_speed * 0.5
                     enemy['y'] += math.sin(angle) * self.enemy_speed * 0.5
                     enemy['shoot_timer'] += 1
-
-                    # 1秒（60フレーム）ごとに弾を発射
                     if enemy['shoot_timer'] >= 60:
                         self.bullets.append({
                             'x': enemy['x'],
@@ -289,35 +261,28 @@ class App:
                             'from_enemy': True
                         })
                         enemy['shoot_timer'] = 0
-                
-                else:  # 'green'
-                    # 緑の敵：超低速で近づく
+                else:  # green
                     enemy['x'] += math.cos(angle) * self.enemy_speed * 0.2
                     enemy['y'] += math.sin(angle) * self.enemy_speed * 0.2
 
             elif enemy['type'] == 'cyan':
-                # 水色の帯状大群：追跡はせず、最初に設定した速度で移動
                 enemy['x'] += enemy['vx']
                 enemy['y'] += enemy['vy']
             
-            # プレイヤーと敵の衝突判定
+            # プレイヤーとの衝突判定
             dist_pe = math.hypot(self.player_x - enemy['x'], self.player_y - enemy['y'])
             if dist_pe < self.player_size and not self.invincible:
                 self.player_hp -= 3
                 if enemy in self.enemies:
                     self.enemies.remove(enemy)
-                
-                # プレイヤーHPが0以下ならゲームオーバー
                 if self.player_hp <= 0:
                     self.player_hp = 0
                     self.game_over = True
                     break
-                
-                # ダメージを受けたのでプレイヤーを無敵状態に
                 self.invincible = True
-                self.invincible_timer = 180  # 3秒相当（60FPS想定）
+                self.invincible_timer = 180  # 3秒
 
-            # 画面外に出すぎたら削除（負荷軽減、特に水色の敵に有効）
+            # 画面外判定
             margin = 180
             screen_x = enemy['x'] - self.player_x + 128
             screen_y = enemy['y'] - self.player_y + 128
@@ -327,15 +292,13 @@ class App:
                     self.enemies.remove(enemy)
 
         # ------------------------------------------------------------
-        # 敵の弾とプレイヤーの衝突判定
+        # 敵の弾（衝突判定）
         # ------------------------------------------------------------
         for bullet in self.bullets[:]:
-            # 敵弾だけ衝突判定を行う
             if bullet.get('from_enemy', False):
                 dist_pb = math.hypot(bullet['x'] - self.player_x, bullet['y'] - self.player_y)
                 if dist_pb < self.player_size and not self.invincible:
                     self.player_hp -= 1
-                    # HPが0以下でゲームオーバー
                     if self.player_hp <= 0:
                         self.player_hp = 0
                         self.game_over = True
@@ -344,7 +307,7 @@ class App:
                     break
 
         # ------------------------------------------------------------
-        # 無敵状態の時間管理（点滅処理）
+        # 無敵処理
         # ------------------------------------------------------------
         if self.invincible:
             self.invincible_timer -= 1
@@ -354,46 +317,40 @@ class App:
                 self.blink_timer = 0
 
         # ------------------------------------------------------------
-        # 電撃フィールドの効果
+        # 電撃フィールド
         # ------------------------------------------------------------
         if hasattr(self, 'electric_field') and self.electric_field:
-            # チャージタイマーの更新
             if not self.electric_field_active:
                 self.electric_field_cooldown -= 1
                 if self.electric_field_cooldown <= 0:
                     self.electric_field_active = True
 
-            # 電撃フィールドがアクティブな場合のみ効果を発揮
             if self.electric_field_active:
                 enemy_hit = False
                 for enemy in self.enemies[:]:
                     distance = math.hypot(self.player_x - enemy['x'], self.player_y - enemy['y'])
                     if distance < self.electric_field_radius:
-                        # 敵にダメージを与える
                         enemy['hp'] = enemy.get('hp', 3) - self.electric_field_damage
                         if enemy['hp'] <= 0:
                             self.enemies.remove(enemy)
                             self.score += 1
-                            # 経験値トークンを生成
                             self.exp_tokens.append({
                                 'x': enemy['x'],
                                 'y': enemy['y']
                             })
                             enemy_hit = True
-                
-                # 敵を倒した場合、60秒間のチャージを開始
                 if enemy_hit:
                     self.electric_field_active = False
-                    self.electric_field_cooldown = 20 * 60  # 20秒（60FPS）
+                    self.electric_field_cooldown = 20 * 60  # 20秒
 
         # ------------------------------------------------------------
-        # 衛星（スキル獲得オブジェクト）の更新
+        # 衛星の更新
         # ------------------------------------------------------------
         for satellite in self.satellites:
             satellite.update()
         
         # ------------------------------------------------------------
-        # 弾の発射クールダウン更新
+        # 弾のクールダウン
         # ------------------------------------------------------------
         if self.bullet_cooldown > 0:
             self.bullet_cooldown -= 1
@@ -402,7 +359,6 @@ class App:
         # 自動誘導弾発射
         # ------------------------------------------------------------
         if self.bullet_cooldown <= 0 and len(self.enemies) > 0:
-            # 最も近い敵を探す
             nearest_enemy = None
             min_distance = float('inf')
             for enemy in self.enemies:
@@ -423,15 +379,13 @@ class App:
                     'vy': math.sin(angle) * self.player_bullet_speed,
                     'from_enemy': False
                 })
-                
-                # クールダウンを初期化
                 self.bullet_cooldown = self.cooldown_time
 
         # ------------------------------------------------------------
         # 弾の更新 & 敵との衝突判定
         # ------------------------------------------------------------
         for bullet in self.bullets[:]:
-            # 誘導弾の場合、最も近い敵を追尾
+            # 誘導弾の場合
             if hasattr(self, 'homing_bullets') and self.homing_bullets and not bullet.get('from_enemy', False):
                 nearest_enemy = None
                 min_distance = float('inf')
@@ -440,7 +394,6 @@ class App:
                     if distance < min_distance:
                         min_distance = distance
                         nearest_enemy = enemy
-                
                 if nearest_enemy:
                     dx = nearest_enemy['x'] - bullet['x']
                     dy = nearest_enemy['y'] - bullet['y']
@@ -448,11 +401,9 @@ class App:
                     bullet['vx'] = math.cos(angle) * self.homing_bullet_speed
                     bullet['vy'] = math.sin(angle) * self.homing_bullet_speed
             
-            # 弾を移動
             bullet['x'] += bullet['vx']
             bullet['y'] += bullet['vy']
             
-            # 画面外に出た弾を削除
             screen_x = bullet['x'] - self.player_x + 128
             screen_y = bullet['y'] - self.player_y + 128
             if (screen_x < 0 or screen_x > 256 or
@@ -461,7 +412,6 @@ class App:
                     self.bullets.remove(bullet)
                 continue
             
-            # プレイヤーが撃った弾と敵の衝突判定
             if not bullet.get('from_enemy', False):
                 for enemy in self.enemies[:]:
                     dist_be = math.hypot(bullet['x'] - enemy['x'], bullet['y'] - enemy['y'])
@@ -469,7 +419,6 @@ class App:
                         if enemy in self.enemies:
                             self.enemies.remove(enemy)
                             self.score += 1
-                            # 経験値トークンを生成
                             self.exp_tokens.append({
                                 'x': enemy['x'],
                                 'y': enemy['y']
@@ -485,24 +434,20 @@ class App:
             dx = exp_token['x'] - self.player_x
             dy = exp_token['y'] - self.player_y
             distance = math.hypot(dx, dy)
-            
-            # 一定距離(30ピクセル)以内なら吸い寄せ
             if distance < 30:
                 angle = math.atan2(dy, dx)
                 exp_token['x'] -= math.cos(angle) * self.exp_token_speed * 2
                 exp_token['y'] -= math.sin(angle) * self.exp_token_speed * 2
 
-            # プレイヤーとトークンの衝突判定
             if distance < self.player_size:
                 self.exp_tokens.remove(exp_token)
                 self.exp_count += 1
 
         # ------------------------------------------------------------
-        # 「次のスキル取得に必要な経験値」を超えたかどうかをチェック
+        # 「次のスキル取得に必要な経験値」を超えたか
         # ------------------------------------------------------------
         if (self.exp_count >= self.next_skill_threshold
             and not self.show_skill_select):
-            # 累計経験値が閾値を超えた「タイミング」で 1度だけスキル選択を表示
             self.show_skill_select = True
             self.paused = True
             self.generate_skill_options()
@@ -510,14 +455,12 @@ class App:
     def spawn_enemy(self):
         """
         一定距離離れた円周上に1体だけランダムなタイプの敵をスポーンさせる
-        (赤,青,緑の3種のみ)
         """
         angle = random.uniform(0, math.pi * 2)
         spawn_radius = 180
         spawn_x = self.player_x + math.cos(angle) * spawn_radius
         spawn_y = self.player_y + math.sin(angle) * spawn_radius
         
-        # 水色(cyan)は通常スポーンさせない
         enemy_type = random.choice(['red', 'blue', 'green'])
         
         self.enemies.append({
@@ -529,7 +472,7 @@ class App:
 
     def spawn_green_ring(self, num_enemies=8, distance=120):
         """
-        緑色の敵を円形に大量配置して包囲させるイベント用のメソッド。
+        緑色の敵を円形に大量配置して包囲させるイベント
         """
         for i in range(num_enemies):
             angle = (2 * math.pi / num_enemies) * i
@@ -538,20 +481,18 @@ class App:
             self.enemies.append({
                 'x': spawn_x,
                 'y': spawn_y,
-                'type': 'green',  # 緑色の敵
+                'type': 'green',
                 'shoot_timer': 0
             })
 
     def spawn_cyan_wave(self, num_enemies=120):
         """
-        プレイヤー方向へ向かうベクトルにランダムな角度を加え、
-        全員が完全に一点に収束せず、ある程度拡散した帯になるようにする。
+        水色の帯状大群をスポーン
         """
         directions = ['top-right', 'top-left', 'bottom-right', 'bottom-left']
         direction = random.choice(directions)
 
         px, py = self.player_x, self.player_y
-
         base_dist = 180
         band_width_x = 120
         band_width_y = 80
@@ -571,23 +512,15 @@ class App:
             spawn_base_y = py + base_dist
 
         for _ in range(num_enemies):
-            # 帯として分散させるため、X/Yそれぞれにランダムオフセット
             offset_x = random.uniform(-band_width_x/2, band_width_x/2)
             offset_y = random.uniform(-band_width_y/2, band_width_y/2)
-
             sx = spawn_base_x + offset_x
             sy = spawn_base_y + offset_y
-
-            # プレイヤーの位置 - スポーン位置
             dx = px - sx
             dy = py - sy
             base_angle = math.atan2(dy, dx)
-
-            # ★ここでランダムな拡散角を加える（例：±0.2ラジアン ≈ ±11.5度）
             spread = random.uniform(-0.2, 0.2)  
             angle = base_angle + spread
-
-            # 速度ベクトル
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
 
@@ -599,11 +532,9 @@ class App:
                 'vy': vy,
             })
 
-
-
     class Satellite:
         """
-        衛星オブジェクト：プレイヤーの周囲を回転し、敵に衝突して倒す。
+        衛星オブジェクト
         """
         def __init__(self, player, index, total):
             self.player = player
@@ -642,7 +573,7 @@ class App:
 
     def add_satellite(self):
         """
-        衛星を追加し、既存の衛星を等間隔に再配置する
+        衛星を追加し、既存の衛星を等間隔に再配置
         """
         total = len(self.satellites) + 1
         for i, satellite in enumerate(self.satellites):
@@ -669,17 +600,13 @@ class App:
         self.cooldown_time = 20
         self.level = 1
         self.spawn_interval = self.base_spawn_interval
-        
-        # イベントタイマーをリセット
         self.event_timer = 0
 
-        # スキル関連の状態をリセット
         if hasattr(self, 'has_electric_field'):
             del self.has_electric_field
         if hasattr(self, 'electric_field'):
             del self.electric_field
 
-        # スキル取得管理用の変数も再初期化
         self.skill_level = 1
         self.next_skill_threshold = self.get_skill_threshold(self.skill_level)
 
@@ -697,7 +624,6 @@ class App:
     def generate_skill_options(self):
         """
         スキル選択画面に表示するスキル一覧を生成
-        取得していないスキルからランダムに3つを選択
         """
         all_skills = [
             {
@@ -720,7 +646,7 @@ class App:
                 'name': 'スピードアップ',
                 'description': 'プレイヤーの移動速度が1.5倍になる',
                 'effect': lambda: setattr(self, 'player_speed', self.player_speed * 1.5),
-                'condition': lambda: self.player_speed < 6  # 最大速度制限
+                'condition': lambda: self.player_speed < 6
             },
             {
                 'name': '電撃フィールド',
@@ -735,38 +661,69 @@ class App:
             if 'condition' not in skill or skill['condition']()
         ]
         
-        # 利用可能なスキルからランダムに3つを選択
         self.skill_options = random.sample(available_skills, min(3, len(available_skills)))
 
     def draw(self):
         """
-        メインの描画メソッド。Pyxel はここを1フレームごとに呼び出す。
+        メインの描画メソッド
         """
         pyxel.cls(0)
 
-        # 背景ドット
+        # 背景
         for x in range(-256, 256, 16):
             for y in range(-256, 256, 16):
                 screen_x = (x - self.player_x) % 256
                 screen_y = (y - self.player_y) % 256
                 pyxel.pset(screen_x, screen_y, 3)
 
-        # ゲームオーバー画面
+        # ゲームオーバー時の描画
         if self.game_over:
             game_over_text = "GAME OVER"
             text_width = len(game_over_text) * 4
-            pyxel.text(128 - text_width // 2, 116, game_over_text, 7)
+            # 縁取り付きでゲームオーバー表示
+            draw_text_with_border(128 - text_width // 2, 116, game_over_text, 7, 0, self.font)
             
-            restart_text = "Press 'R' to restart"
-            text_width = len(restart_text) * 4
-            pyxel.text(128 - text_width // 2, 132, restart_text, 7)
+            # リセットボタン
+            button_x = 100
+            button_y = 140
+            button_width = 56
+            button_height = 16
+            pyxel.rect(button_x, button_y, button_width, button_height, 5)  # ボタン背景
+            pyxel.rectb(button_x, button_y, button_width, button_height, 13)  # ボタン枠
+            
+            # ★ 縁取りつきテキストで「リセット」を表示
+            draw_text_with_border(
+                button_x + 8,
+                button_y + 4,
+                "リセット",
+                col=7,
+                bcol=0,
+                font=self.font
+            )
+
+            # リセットボタンのクリック処理
+            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                mx = pyxel.mouse_x
+                my = pyxel.mouse_y
+                if (button_x <= mx <= button_x + button_width and
+                    button_y <= my <= button_y + button_height):
+                    self.game_over = False
+                    self.reset_game()
             
             score_text = f"Score: {self.score}"
             text_width = len(score_text) * 4
-            pyxel.text(128 - text_width // 2, 148, score_text, 7)
+            draw_text_with_border(128 - text_width // 2, 160, score_text, 7, 0, self.font)
+
+            # ★ ゲームオーバーでもクロスヘアを表示したい場合はここで描画してから return
+            size = self.crosshair_size
+            mx = pyxel.mouse_x
+            my = pyxel.mouse_y
+            pyxel.line(mx - size, my, mx + size, my, self.crosshair_color)
+            pyxel.line(mx, my - size, mx, my + size, self.crosshair_color)
+
             return
 
-        # プレイヤー（画面中央に固定）
+        # プレイヤー
         screen_x = 128
         screen_y = 128
         if not self.invincible or (self.blink_timer // 10) % 2 == 0:
@@ -781,11 +738,10 @@ class App:
         hp_width = int(gauge_width * (self.player_hp / self.max_hp))
         pyxel.rect(gauge_x, gauge_y, hp_width, gauge_height, 8)
 
-        # 敵を描画
+        # 敵描画
         for enemy in self.enemies:
             ex = enemy['x'] - self.player_x + 128
             ey = enemy['y'] - self.player_y + 128
-            # 色分け
             if enemy['type'] == 'red':
                 color = 8
             elif enemy['type'] == 'blue':
@@ -793,14 +749,13 @@ class App:
             elif enemy['type'] == 'green':
                 color = 11
             elif enemy['type'] == 'cyan':
-                color = 13  # 水色っぽい色
+                color = 13
             else:
-                color = 7  # fallback
-                
+                color = 7
             pyxel.rect(ex - self.enemy_size//2, ey - self.enemy_size//2,
                        self.enemy_size, self.enemy_size, color)
 
-        # 弾を描画
+        # 弾描画
         for bullet in self.bullets:
             bx = bullet['x'] - self.player_x + 128
             by = bullet['y'] - self.player_y + 128
@@ -808,13 +763,13 @@ class App:
             pyxel.rect(bx - self.bullet_size//2, by - self.bullet_size//2,
                        self.bullet_size, self.bullet_size, color)
 
-        # 経験値トークンを描画
+        # 経験値トークン描画
         for exp_token in self.exp_tokens:
             tx = exp_token['x'] - self.player_x + 128
             ty = exp_token['y'] - self.player_y + 128
             pyxel.circ(tx, ty, self.exp_token_size, 10)
 
-        # 衛星を描画
+        # 衛星描画
         for satellite in self.satellites:
             satellite.draw()
 
@@ -833,7 +788,7 @@ class App:
                 pyxel.circb(128, 128, self.electric_field_radius, 13)
                 pyxel.text(120, 128, f"{int(charge_percent * 100)}%", 13)
 
-        # UI系表示 (スコア・経験値など)
+        # UI表示
         pyxel.text(5, 5, f"X:{self.player_x:.1f} Y:{self.player_y:.1f}", 7)
         pyxel.text(5, 235, f"Score:{self.score} Exp:{self.exp_count}", 7)
 
@@ -847,7 +802,7 @@ class App:
                 draw_text_with_border(60, y, f"{i+1}. {option['name']}", 7, 5, self.font)
                 draw_text_with_border(60, y + 15, option['description'], 5, 1, self.font)
 
-        # クロスヘア（スキル選択ウインドウの上に表示）
+        # ★ ゲームオーバーではないときもクロスヘアを最後に描画
         size = self.crosshair_size
         mx = pyxel.mouse_x
         my = pyxel.mouse_y
