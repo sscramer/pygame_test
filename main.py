@@ -75,6 +75,8 @@ class App:
         self.enemies = []             # 敵のリスト
         self.enemy_size = 8           # 敵のサイズ
         self.enemy_speed = 1.5        # 敵の移動速度
+        
+        # 「通常の敵スポーン」まわり
         self.spawn_interval = 30      # 敵のスポーン間隔
         self.spawn_timer = 0          # 敵スポーン用タイマー
         
@@ -100,6 +102,11 @@ class App:
         self.level = 1                # 現在のレベル
         self.base_spawn_interval = 30 # 敵スポーンの基本間隔
         self.last_key_pressed = None  # 最後に押されたキー
+        
+        # -----------------------
+        # イベント管理用タイマー
+        # -----------------------
+        self.event_timer = 0          # 特殊イベント用のタイマー
         
         # 日本語フォントを初期化
         self.font = pyxel.Font("assets/k8x12.bdf")
@@ -175,6 +182,7 @@ class App:
         1フレームごとに呼び出され、以下の処理を行う：
         - プレイヤーの移動と攻撃
         - 敵のスポーンと移動
+        - 特殊イベントの処理（一定時間ごとの包囲や大群）
         - 弾と敵の衝突判定
         - 経験値トークンの処理
         - ゲーム状態の更新
@@ -185,7 +193,17 @@ class App:
         if pyxel.btnp(pyxel.KEY_T, hold=0, repeat=0):
             self.exp_count += 20
             self.score += 20  # スコアも上げておく
-            # ここで一気に閾値を超えた場合 → 下の判定でスキルウィンドウが開く
+
+        # ------------------------------------------------------------
+        # デバッグ用：Yキー(緑色一斉包囲), Uキー(水色の帯状大群)
+        # ------------------------------------------------------------
+        if pyxel.btnp(pyxel.KEY_Y):
+            # 大量の緑色で包囲する
+            self.spawn_green_ring(num_enemies=20, distance=150)
+
+        if pyxel.btnp(pyxel.KEY_U):
+            # 水色の帯状大群を出現
+            self.spawn_cyan_wave(num_enemies=30)  # 数はお好みで
 
         # ------------------------------------------------------------
         # レベルアップ判定：スコアに応じてレベルを更新し、敵の発生間隔を短縮
@@ -213,7 +231,7 @@ class App:
             self.player_x += self.player_speed
 
         # ------------------------------------------------------------
-        # 敵のスポーン処理
+        # 敵のスポーン処理（通常用：赤,青,緑のみ）
         # ------------------------------------------------------------
         self.spawn_timer += 1
         if self.spawn_timer >= self.spawn_interval:
@@ -221,39 +239,61 @@ class App:
             self.spawn_timer = 0
 
         # ------------------------------------------------------------
+        # 一定時間ごとのイベント管理
+        #   30秒ごとに緑色の円形包囲
+        #   45秒ごとに水色の帯状大群
+        # ------------------------------------------------------------
+        self.event_timer += 1
+
+        # 30秒(1800フレーム)ごとに大量の緑色
+        if self.event_timer % (60 * 30) == 0:
+            self.spawn_green_ring(num_enemies=30, distance=150)
+
+        # 45秒(2700フレーム)ごとに水色の帯状大群
+        if self.event_timer % (60 * 45) == 0:
+            self.spawn_cyan_wave(num_enemies=50)
+
+        # ------------------------------------------------------------
         # 敵の移動や弾の発射、およびプレイヤーとの衝突判定
         # ------------------------------------------------------------
         for enemy in self.enemies[:]:
-            dx = self.player_x - enemy['x']
-            dy = self.player_y - enemy['y']
-            angle = math.atan2(dy, dx)
-            
-            if enemy['type'] == 'red':
-                # 赤い敵：プレイヤーに高速突進
-                enemy['x'] += math.cos(angle) * self.enemy_speed * 1.5
-                enemy['y'] += math.sin(angle) * self.enemy_speed * 1.5
-            
-            elif enemy['type'] == 'blue':
-                # 青い敵：ゆっくり移動 + 定期的に弾発射
-                enemy['x'] += math.cos(angle) * self.enemy_speed * 0.5
-                enemy['y'] += math.sin(angle) * self.enemy_speed * 0.5
-                enemy['shoot_timer'] += 1
+            if enemy['type'] in ['red', 'blue', 'green']:
+                # 既存の処理：プレイヤーを追跡
+                dx = self.player_x - enemy['x']
+                dy = self.player_y - enemy['y']
+                angle = math.atan2(dy, dx)
+                
+                if enemy['type'] == 'red':
+                    # 赤い敵：プレイヤーに高速突進
+                    enemy['x'] += math.cos(angle) * self.enemy_speed * 1.5
+                    enemy['y'] += math.sin(angle) * self.enemy_speed * 1.5
+                
+                elif enemy['type'] == 'blue':
+                    # 青い敵：ゆっくり移動 + 定期的に弾発射
+                    enemy['x'] += math.cos(angle) * self.enemy_speed * 0.5
+                    enemy['y'] += math.sin(angle) * self.enemy_speed * 0.5
+                    enemy['shoot_timer'] += 1
 
-                # 1秒（60フレーム）ごとに弾を発射
-                if enemy['shoot_timer'] >= 60:
-                    self.bullets.append({
-                        'x': enemy['x'],
-                        'y': enemy['y'],
-                        'vx': math.cos(angle) * self.enemy_bullet_speed,
-                        'vy': math.sin(angle) * self.enemy_bullet_speed,
-                        'from_enemy': True
-                    })
-                    enemy['shoot_timer'] = 0
-            
-            else:
-                # 緑の敵：超低速で近づく
-                enemy['x'] += math.cos(angle) * self.enemy_speed * 0.2
-                enemy['y'] += math.sin(angle) * self.enemy_speed * 0.2
+                    # 1秒（60フレーム）ごとに弾を発射
+                    if enemy['shoot_timer'] >= 60:
+                        self.bullets.append({
+                            'x': enemy['x'],
+                            'y': enemy['y'],
+                            'vx': math.cos(angle) * self.enemy_bullet_speed,
+                            'vy': math.sin(angle) * self.enemy_bullet_speed,
+                            'from_enemy': True
+                        })
+                        enemy['shoot_timer'] = 0
+                
+                else:  # 'green'
+                    # 緑の敵：超低速で近づく
+                    enemy['x'] += math.cos(angle) * self.enemy_speed * 0.2
+                    enemy['y'] += math.sin(angle) * self.enemy_speed * 0.2
+
+            elif enemy['type'] == 'cyan':
+                # 水色の帯状大群：追跡はせず、最初に設定した速度で移動
+                enemy['x'] += enemy['vx']
+                enemy['y'] += enemy['vy']
             
             # プレイヤーと敵の衝突判定
             dist_pe = math.hypot(self.player_x - enemy['x'], self.player_y - enemy['y'])
@@ -271,6 +311,15 @@ class App:
                 # ダメージを受けたのでプレイヤーを無敵状態に
                 self.invincible = True
                 self.invincible_timer = 180  # 3秒相当（60FPS想定）
+
+            # 画面外に出すぎたら削除（負荷軽減、特に水色の敵に有効）
+            margin = 180
+            screen_x = enemy['x'] - self.player_x + 128
+            screen_y = enemy['y'] - self.player_y + 128
+            if (screen_x < -margin or screen_x > 256 + margin or
+                screen_y < -margin or screen_y > 256 + margin):
+                if enemy in self.enemies:
+                    self.enemies.remove(enemy)
 
         # ------------------------------------------------------------
         # 敵の弾とプレイヤーの衝突判定
@@ -448,22 +497,97 @@ class App:
 
     def spawn_enemy(self):
         """
-        一定距離離れた円周上に敵をスポーンさせる
+        一定距離離れた円周上に1体だけランダムなタイプの敵をスポーンさせる
+        (赤,青,緑の3種のみ)
         """
         angle = random.uniform(0, math.pi * 2)
         spawn_radius = 180
         spawn_x = self.player_x + math.cos(angle) * spawn_radius
         spawn_y = self.player_y + math.sin(angle) * spawn_radius
         
+        # 水色(cyan)は通常スポーンさせない
         enemy_type = random.choice(['red', 'blue', 'green'])
         
         self.enemies.append({
             'x': spawn_x,
             'y': spawn_y,
-            'angle': angle,
             'type': enemy_type,
             'shoot_timer': 0
         })
+
+    def spawn_green_ring(self, num_enemies=8, distance=120):
+        """
+        緑色の敵を円形に大量配置して包囲させるイベント用のメソッド。
+        """
+        for i in range(num_enemies):
+            angle = (2 * math.pi / num_enemies) * i
+            spawn_x = self.player_x + math.cos(angle) * distance
+            spawn_y = self.player_y + math.sin(angle) * distance
+            self.enemies.append({
+                'x': spawn_x,
+                'y': spawn_y,
+                'type': 'green',  # 緑色の敵
+                'shoot_timer': 0
+            })
+
+    def spawn_cyan_wave(self, num_enemies=120):
+        """
+        プレイヤー方向へ向かうベクトルにランダムな角度を加え、
+        全員が完全に一点に収束せず、ある程度拡散した帯になるようにする。
+        """
+        directions = ['top-right', 'top-left', 'bottom-right', 'bottom-left']
+        direction = random.choice(directions)
+
+        px, py = self.player_x, self.player_y
+
+        base_dist = 180
+        band_width_x = 120
+        band_width_y = 80
+        speed = 5
+
+        if direction == 'top-right':
+            spawn_base_x = px + base_dist
+            spawn_base_y = py - base_dist
+        elif direction == 'top-left':
+            spawn_base_x = px - base_dist
+            spawn_base_y = py - base_dist
+        elif direction == 'bottom-right':
+            spawn_base_x = px + base_dist
+            spawn_base_y = py + base_dist
+        else:
+            spawn_base_x = px - base_dist
+            spawn_base_y = py + base_dist
+
+        for _ in range(num_enemies):
+            # 帯として分散させるため、X/Yそれぞれにランダムオフセット
+            offset_x = random.uniform(-band_width_x/2, band_width_x/2)
+            offset_y = random.uniform(-band_width_y/2, band_width_y/2)
+
+            sx = spawn_base_x + offset_x
+            sy = spawn_base_y + offset_y
+
+            # プレイヤーの位置 - スポーン位置
+            dx = px - sx
+            dy = py - sy
+            base_angle = math.atan2(dy, dx)
+
+            # ★ここでランダムな拡散角を加える（例：±0.2ラジアン ≈ ±11.5度）
+            spread = random.uniform(-0.2, 0.2)  
+            angle = base_angle + spread
+
+            # 速度ベクトル
+            vx = math.cos(angle) * speed
+            vy = math.sin(angle) * speed
+
+            self.enemies.append({
+                'x': sx,
+                'y': sy,
+                'type': 'cyan',
+                'vx': vx,
+                'vy': vy,
+            })
+
+
 
     class Satellite:
         """
@@ -534,6 +658,9 @@ class App:
         self.level = 1
         self.spawn_interval = self.base_spawn_interval
         
+        # イベントタイマーをリセット
+        self.event_timer = 0
+
         # スキル関連の状態をリセット
         if hasattr(self, 'has_homing_bullet'):
             del self.has_homing_bullet
@@ -658,7 +785,18 @@ class App:
         for enemy in self.enemies:
             ex = enemy['x'] - self.player_x + 128
             ey = enemy['y'] - self.player_y + 128
-            color = 8 if enemy['type'] == 'red' else 12 if enemy['type'] == 'blue' else 11
+            # 色分け
+            if enemy['type'] == 'red':
+                color = 8
+            elif enemy['type'] == 'blue':
+                color = 12
+            elif enemy['type'] == 'green':
+                color = 11
+            elif enemy['type'] == 'cyan':
+                color = 13  # 水色っぽい色
+            else:
+                color = 7  # fallback
+                
             pyxel.rect(ex - self.enemy_size//2, ey - self.enemy_size//2,
                        self.enemy_size, self.enemy_size, color)
 
