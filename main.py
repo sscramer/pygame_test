@@ -277,6 +277,39 @@ class App:
                 self.blink_timer = 0
 
         # ------------------------------------------------------------
+        # 電撃フィールドの効果
+        # ------------------------------------------------------------
+        if hasattr(self, 'electric_field') and self.electric_field:
+            # チャージタイマーの更新
+            if not self.electric_field_active:
+                self.electric_field_cooldown -= 1
+                if self.electric_field_cooldown <= 0:
+                    self.electric_field_active = True
+
+            # 電撃フィールドがアクティブな場合のみ効果を発揮
+            if self.electric_field_active:
+                enemy_hit = False
+                for enemy in self.enemies[:]:
+                    distance = math.hypot(self.player_x - enemy['x'], self.player_y - enemy['y'])
+                    if distance < self.electric_field_radius:
+                        # 敵にダメージを与える
+                        enemy['hp'] = enemy.get('hp', 3) - self.electric_field_damage
+                        if enemy['hp'] <= 0:
+                            self.enemies.remove(enemy)
+                            self.score += 1
+                            # 経験値トークンを生成
+                            self.exp_tokens.append({
+                                'x': enemy['x'],
+                                'y': enemy['y']
+                            })
+                            enemy_hit = True
+                
+                # 敵を倒した場合、60秒間のチャージを開始
+                if enemy_hit:
+                    self.electric_field_active = False
+                    self.electric_field_cooldown = 60 * 60  # 60秒（60FPS）
+
+        # ------------------------------------------------------------
         # 衛星（スキル獲得オブジェクト）の更新
         # ------------------------------------------------------------
         for satellite in self.satellites:
@@ -315,6 +348,25 @@ class App:
         # 弾の更新 & 敵との衝突判定
         # ------------------------------------------------------------
         for bullet in self.bullets[:]:
+            # 誘導弾の場合、最も近い敵を追尾
+            if hasattr(self, 'homing_bullets') and self.homing_bullets and not bullet.get('from_enemy', False):
+                # 最も近い敵を探す
+                nearest_enemy = None
+                min_distance = float('inf')
+                for enemy in self.enemies:
+                    distance = math.hypot(bullet['x'] - enemy['x'], bullet['y'] - enemy['y'])
+                    if distance < min_distance:
+                        min_distance = distance
+                        nearest_enemy = enemy
+                
+                # 敵に向かって移動
+                if nearest_enemy:
+                    dx = nearest_enemy['x'] - bullet['x']
+                    dy = nearest_enemy['y'] - bullet['y']
+                    angle = math.atan2(dy, dx)
+                    bullet['vx'] = math.cos(angle) * self.homing_bullet_speed
+                    bullet['vy'] = math.sin(angle) * self.homing_bullet_speed
+            
             # 弾を移動
             bullet['x'] += bullet['vx']
             bullet['y'] += bullet['vy']
@@ -498,12 +550,42 @@ class App:
         self.cooldown_time = 20
         self.level = 1
         self.spawn_interval = self.base_spawn_interval
+        
+        # スキル関連の状態をリセット
+        if hasattr(self, 'has_homing_bullet'):
+            del self.has_homing_bullet
+        if hasattr(self, 'has_electric_field'):
+            del self.has_electric_field
+        if hasattr(self, 'homing_bullets'):
+            del self.homing_bullets
+        if hasattr(self, 'electric_field'):
+            del self.electric_field
+
+    def add_homing_bullet(self):
+        """
+        誘導弾を追加する
+        """
+        self.homing_bullets = True
+        self.homing_bullet_speed = 3
+        self.has_homing_bullet = True
+
+    def add_electric_field(self):
+        """
+        電撃フィールドを追加する
+        """
+        self.electric_field = True
+        self.electric_field_active = True
+        self.electric_field_radius = 20
+        self.electric_field_damage = 1
+        self.electric_field_cooldown = 0
+        self.has_electric_field = True
 
     def generate_skill_options(self):
         """
         スキル選択画面に表示するスキル一覧を生成
+        取得していないスキルからランダムに3つを選択
         """
-        self.skill_options = [
+        all_skills = [
             {
                 'name': '衛星砲',
                 'description': 'プレイヤーを周回する補助砲台を追加',
@@ -518,8 +600,27 @@ class App:
                 'name': 'HP全回復',
                 'description': 'プレイヤーのHPを最大値まで回復',
                 'effect': lambda: setattr(self, 'player_hp', self.max_hp)
+            },
+            {
+                'name': '誘導弾',
+                'description': '発射した弾が敵を自動追尾する',
+                'effect': lambda: self.add_homing_bullet(),
+                'condition': lambda: not hasattr(self, 'has_homing_bullet') or not self.has_homing_bullet
+            },
+            {
+                'name': '電撃フィールド',
+                'description': 'プレイヤーの周囲に電撃フィールドを展開',
+                'effect': lambda: self.add_electric_field(),
+                'condition': lambda: not hasattr(self, 'has_electric_field') or not self.has_electric_field
             }
         ]
+        
+        # 取得可能なスキルのみをフィルタリング
+        available_skills = [skill for skill in all_skills
+                          if not 'condition' in skill or skill['condition']()]
+        
+        # 利用可能なスキルからランダムに3つを選択（3つ未満の場合は全て選択）
+        self.skill_options = random.sample(available_skills, min(3, len(available_skills)))
 
     def draw(self):
         """
@@ -650,6 +751,26 @@ class App:
         # ------------------------------------------------------------
         for satellite in self.satellites:
             satellite.draw()
+
+        # ------------------------------------------------------------
+        # 電撃フィールドを描画
+        # ------------------------------------------------------------
+        if hasattr(self, 'electric_field') and self.electric_field:
+            if self.electric_field_active:
+                # 電撃フィールドの円を描画
+                pyxel.circb(128, 128, self.electric_field_radius, 12)
+                # 電撃のエフェクトをランダムに表示
+                for _ in range(5):
+                    angle = random.uniform(0, 2 * math.pi)
+                    length = random.uniform(0, self.electric_field_radius)
+                    x = 128 + math.cos(angle) * length
+                    y = 128 + math.sin(angle) * length
+                    pyxel.line(128, 128, x, y, 12)
+            else:
+                # チャージ中の表示
+                charge_percent = 1 - (self.electric_field_cooldown / (60 * 60))
+                pyxel.circb(128, 128, self.electric_field_radius, 13)
+                pyxel.text(120, 128, f"{int(charge_percent * 100)}%", 13)
 
         # ------------------------------------------------------------
         # UI系の描画（座標、スコア、経験値など）
