@@ -400,14 +400,17 @@ class App:
         - 敵との衝突判定
         - 敵を倒すとスコアを加算
         """
-        def __init__(self, player):
+        def __init__(self, player, index, total):
             """
             衛星オブジェクトの初期化
             Args:
                 player (App): プレイヤーオブジェクトへの参照
+                index (int): 衛星のインデックス（0から開始）
+                total (int): 衛星の総数
             """
             self.player = player  # プレイヤーオブジェクト
-            self.angle = 0  # 現在の回転角度
+            # 衛星の総数に応じて等間隔に配置
+            self.angle = (2 * math.pi / total) * index  # 現在の回転角度
             self.distance = 40  # プレイヤーからの距離
             self.speed = 0.05   # 回転速度（ラジアン/フレーム）
             self.size = 2       # 衛星のサイズ（半径）
@@ -464,6 +467,17 @@ class App:
             screen_y = self.get_y() - self.player.player_y + 128
             pyxel.circ(screen_x, screen_y, self.size, self.color)
 
+    def add_satellite(self):
+        """
+        衛星を追加し、既存の衛星を等間隔に再配置する
+        """
+        total = len(self.satellites) + 1
+        # 既存の衛星を再配置
+        for i, satellite in enumerate(self.satellites):
+            satellite.angle = (2 * math.pi / total) * i
+        # 新しい衛星を追加
+        self.satellites.append(self.Satellite(self, len(self.satellites), total))
+
     def reset_game(self):
         """
         ゲームの状態を初期化する
@@ -493,7 +507,7 @@ class App:
             {
                 'name': '衛星砲',
                 'description': 'プレイヤーを周回する補助砲台を追加',
-                'effect': lambda: self.satellites.append(self.Satellite(self))
+                'effect': lambda: self.add_satellite()
             },
             {
                 'name': '攻撃速度アップ',
