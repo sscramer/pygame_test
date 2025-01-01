@@ -597,7 +597,7 @@ class App:
         self.game_over = False
         self.paused = False
         self.show_skill_select = False
-        self.cooldown_time = 20
+        self.cooldown_time = 30  # 初期値に戻す
         self.level = 1
         self.spawn_interval = self.base_spawn_interval
         self.event_timer = 0
